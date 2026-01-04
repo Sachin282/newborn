@@ -197,6 +197,10 @@ impl InternalStateField {
         self.shock_sensitivity = self.shock_sensitivity.clamp(0.05, 0.5);
         self.stability_gain_rate = self.stability_gain_rate.clamp(0.01, 0.2);
         self.energy_gain_rate = self.energy_gain_rate.clamp(0.05, 0.3);
+
+        if self.biases.len() > 5 {
+            self.cluster_biases();
+        }
     }
 
     // --------------------------------------------------
@@ -305,6 +309,27 @@ impl InternalStateField {
             self.tension += dt * 0.2;
             self.stability += ds * 0.2;
             self.energy += de * 0.2;
+        }
+    }
+
+    fn cluster_biases(&mut self) {
+        let mut i = 0;
+
+        while i < self.biases.len() {
+            let mut j = i + 1;
+            while j < self.biases.len() {
+                let dist = self.biases[i].distance(&self.biases[j]);
+
+                // Threshold: same basin
+                if dist < 0.1 {
+                    let other = self.biases[j].clone();
+                    self.biases[i].merge(&other);
+                    self.biases.remove(j);
+                } else {
+                    j += 1;
+                }
+            }
+            i += 1;
         }
     }
 

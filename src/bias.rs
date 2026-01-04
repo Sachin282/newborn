@@ -40,4 +40,29 @@ impl BiasField {
     pub fn decay(&mut self) {
         self.strength *= 0.995; // slow forgetting
     }
+
+
+     /// Distance between two biases (structural similarity)
+    pub fn distance(&self, other: &BiasField) -> f32 {
+        (self.dt_pref - other.dt_pref).abs()
+            + (self.ds_pref - other.ds_pref).abs()
+            + (self.de_pref - other.de_pref).abs()
+    }
+
+    /// Merge another bias into this one
+    pub fn merge(&mut self, other: &BiasField) {
+        // Weighted average based on strength
+        let total = self.strength + other.strength;
+        if total > 0.0 {
+            self.dt_pref =
+                (self.dt_pref * self.strength + other.dt_pref * other.strength) / total;
+            self.ds_pref =
+                (self.ds_pref * self.strength + other.ds_pref * other.strength) / total;
+            self.de_pref =
+                (self.de_pref * self.strength + other.de_pref * other.strength) / total;
+        }
+
+        // Basin deepens
+        self.strength = (self.strength + other.strength).clamp(0.0, 1.0);
+    }
 }
