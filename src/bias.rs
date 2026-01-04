@@ -1,11 +1,13 @@
+// bias.rs
+
 #[derive(Debug, Clone)]
 pub struct BiasField {
-    // Directional preferences
-    pub dt_pref: f32, // tension direction preference
-    pub ds_pref: f32, // stability direction preference
-    pub de_pref: f32, // energy direction preference
+    // Preferred direction (structural memory)
+    pub dt_pref: f32,
+    pub ds_pref: f32,
+    pub de_pref: f32,
 
-    // Strength of bias (memory depth)
+    // How deep this attractor is
     pub strength: f32,
 }
 
@@ -19,14 +21,23 @@ impl BiasField {
         }
     }
 
+    /// How well this bias matches the current state change
+    pub fn similarity(&self, dt: f32, ds: f32, de: f32) -> f32 {
+        (self.dt_pref - dt).abs()
+            + (self.ds_pref - ds).abs()
+            + (self.de_pref - de).abs()
+    }
+
     pub fn reinforce(&mut self, dt: f32, ds: f32, de: f32) {
-        // Move preference toward experienced direction
         self.dt_pref += dt * 0.1;
         self.ds_pref += ds * 0.1;
         self.de_pref += de * 0.1;
 
-        // Memory deepens
         self.strength += 0.05;
         self.strength = self.strength.clamp(0.0, 1.0);
+    }
+
+    pub fn decay(&mut self) {
+        self.strength *= 0.995; // slow forgetting
     }
 }

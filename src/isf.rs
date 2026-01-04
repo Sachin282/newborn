@@ -60,7 +60,7 @@ pub struct InternalStateField {
     /// Directional bias field
     /// This replaces explicit episodic memory over time
     pub memory: Vec<ExperienceTrace>,
-    pub bias: BiasField,
+    pub biases: Vec<BiasField>,
     pub replay_mode: ReplayMode,
 }
 
@@ -84,7 +84,7 @@ impl InternalStateField {
             replay_mode: ReplayMode::StructuralBias, // default testing mode
             // No memory at birth
             memory: Vec::new(),
-            bias: BiasField::new(),
+            biases: Vec::new(),
         }
     }
 
@@ -131,12 +131,41 @@ impl InternalStateField {
         // the internal state moved.
         //
         // This is equivalent to synaptic strengthening.
-
+        // dt is daltas (differences) in tension, stability, energy
         let dt = self.tension - before_tension;
         let ds = self.stability - before_stability;
         let de = self.energy - before_energy;
 
-        self.bias.reinforce(dt, ds, de);
+        // --- Bias competition ---
+        let mut best_idx = None;
+        let mut best_score = f32::MAX;
+
+        for (i, b) in self.biases.iter().enumerate() {
+            let score = b.similarity(dt, ds, de);
+            if score < best_score {
+                best_score = score;
+                best_idx = Some(i);
+            }
+        }
+
+        // Threshold: kitna similar hona chahiye
+        if let Some(i) = best_idx {
+            if best_score < 0.2 {
+                self.biases[i].reinforce(dt, ds, de);
+            } else {
+                self.biases.push(BiasField::new());
+                self.biases.last_mut().unwrap().reinforce(dt, ds, de);
+            }
+        } else {
+            let mut b = BiasField::new();
+            b.reinforce(dt, ds, de);
+            self.biases.push(b);
+        }
+
+        // Decay all non-dominant biases
+        for b in self.biases.iter_mut() {
+            b.decay();
+        }
 
         // ----------------------------------------------
         // PLASTICITY ADAPTATION (LEARNING HOW TO REACT)
@@ -205,9 +234,12 @@ impl InternalStateField {
         // - imagination precursor
         // - reasoning substrate
 
-        self.tension += self.bias.dt_pref * self.bias.strength * 0.05;
-        self.stability += self.bias.ds_pref * self.bias.strength * 0.05;
-        self.energy += self.bias.de_pref * self.bias.strength * 0.05;
+        if let Some(best) = self.biases.iter().max_by(|a, b| a.strength.partial_cmp(&b.strength).unwrap())
+        {
+            self.tension += best.dt_pref * best.strength * 0.05;
+            self.stability += best.ds_pref * best.strength * 0.05;
+            self.energy += best.de_pref * best.strength * 0.05;
+        }
 
         // --------------------------------------------------
         // HOMEOSTASIS (SELF-REGULATION)

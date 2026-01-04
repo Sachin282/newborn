@@ -9,5 +9,10 @@ fn repeated_experience_builds_stronger_bias() {
         brain.apply_disturbance(&d);
     }
 
-    assert!(brain.bias.strength > 0.4, "Bias did not strengthen with repetition");
+    let dominant = brain.biases
+        .iter()
+        .max_by(|a, b| a.strength.partial_cmp(&b.strength).unwrap())
+        .unwrap();
+
+    assert!(dominant.strength > 0.4, "Bias did not strengthen with repetition");
 }

@@ -9,8 +9,13 @@ fn bias_memory_does_not_grow_unbounded() {
         brain.apply_disturbance(&d);
     }
 
+    let dominant = brain.biases
+        .iter()
+        .max_by(|a, b| a.strength.partial_cmp(&b.strength).unwrap())
+        .unwrap();
+
     assert!(
-        brain.bias.strength <= 1.0,
+        dominant.strength <= 1.0,
         "Bias strength exceeded biological limit"
     );
 }
