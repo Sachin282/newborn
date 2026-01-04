@@ -19,4 +19,11 @@ fn main() {
         isf.apply_dicturbance(&d);
         println!("internal state field: {:?}\n", isf);
     }
+
+      // 🧠 Internal thinking time (no input)
+    for _ in 0..50 {
+        isf.internal_tick();
+    }
+
+    println!("{:?}", isf);
 }
