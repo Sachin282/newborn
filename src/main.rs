@@ -1,10 +1,7 @@
 // newborn
 
-mod disturbance;
-mod isf;
-
-use disturbance::Disturbance;
-use isf::InternalStateField;
+use project_newborn::disturbance::Disturbance;
+use project_newborn::isf::InternalStateField;
 
 fn main() {
     let mut isf = InternalStateField::new();   
@@ -15,15 +12,16 @@ fn main() {
         Disturbance::new(0.4, 1.5, 0.2), //stablized : calm, long (rest)
     ];
 
+        
     for d in experiences {
-        isf.apply_dicturbance(&d);
-        println!("internal state field: {:?}\n", isf);
+        isf.apply_disturbance(&d);
+        // println!("internal state field: {:?}\n", isf);
     }
 
       // 🧠 Internal thinking time (no input)
-    for _ in 0..50 {
-        isf.internal_tick();
+    for _ in 0..100 {
+        isf.internal_thinking_tick();
     }
 
-    println!("{:?}", isf);
+    println!("{:#?}", isf);
 }

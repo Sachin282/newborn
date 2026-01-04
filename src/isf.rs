@@ -1,150 +1,279 @@
-// Internal State of body after birth
+// isf.rs
+//
+// Internal State Field (ISF)
+// --------------------------
+// This file represents the INTERNAL PHYSIOLOGY + STRUCTURAL MEMORY
+// of Project Newborn.
+//
+// IMPORTANT PHILOSOPHY:
+// - No symbols
+// - No language
+// - No explicit memory storage (final goal)
+// - Memory = structural bias (directional preference)
+//
+// Step 7: Structural Memory (Phase 1)
+
+use crate::disturbance::Disturbance;
+use crate::bias::BiasField;
+use crate::memory::ExperienceTrace;
+
+#[derive(Debug, Clone, Copy)]
+pub enum ReplayMode {
+    TraceBased,
+    StructuralBias,
+}
+
 
 #[derive(Debug)]
-pub struct InternalStateField { 
-    // Core physiological states
+pub struct InternalStateField {
+    // --------------------------------------------------
+    // CORE INTERNAL PHYSIOLOGY (SELF STATE)
+    // --------------------------------------------------
+
+    /// Nervous arousal / stress tone
     pub tension: f32,
+
+    /// Regulation capacity (slow changing)
     pub stability: f32,
+
+    /// Metabolic / activation energy
     pub energy: f32,
 
-    // Plasticity parameters (learning happens here over time)
-    pub shock_sensitivity: f32, //how strongly shocks affect tension
-    pub stability_gain_rate: f32, //how quickly stability recovers
-    pub energy_gain_rate: f32, //how quickly energy recovers
-}
-impl InternalStateField {
-    pub fn new()-> Self {
-        Self {
-            // Initial DNA  defined states
-            tension: 0.5, //neutral
-            stability: 0.1, //newborn = unstable
-            energy: 0.5, //baseline
+    // --------------------------------------------------
+    // PLASTICITY (HOW THE BRAIN REACTS)
+    // These are ALREADY structural memory
+    // --------------------------------------------------
 
-            // Newborn brain defaults
-            //every child or body have different sensitivity, and recovery rate but keep it 0.2, 0.05, 0.1 for now (low at birth)
-            // eg: when our brain receives shocks for first time, it is more sensitive to it and it hurts more, but when we face same type of pain again and agian, our brain learn to handle it better and our sensories becomes more tollerent to that signal and our shock_sensitivity decreases and stability_recovery_rate and energy_recovery_rate increases timely
-            // eg: when we get some type of shock (like failure) first time, we are more sensitive to it and it hurts more, but when we face same type of pain again and agian, we learn to handle it better and our shock_sensitivity decreases and stability_recovery_rate and energy_recovery_rate increases timely
-            shock_sensitivity: 0.2, 
-            stability_gain_rate: 0.05, // stability_recovery_rate
-            energy_gain_rate: 0.1, //energy_recovery_rate
+    /// How strongly shock affects tension
+    pub shock_sensitivity: f32,
+
+    /// How fast stability grows during calm
+    pub stability_gain_rate: f32,
+
+    /// How energy reacts to stimulation
+    pub energy_gain_rate: f32,
+
+    // --------------------------------------------------
+    // STRUCTURAL MEMORY (STEP 7 CORE)
+    // --------------------------------------------------
+
+    /// Directional bias field
+    /// This replaces explicit episodic memory over time
+    pub memory: Vec<ExperienceTrace>,
+    pub bias: BiasField,
+    pub replay_mode: ReplayMode,
+}
+
+impl InternalStateField {
+    // --------------------------------------------------
+    // BIRTH INITIALIZATION (GENETIC PRIOR)
+    // --------------------------------------------------
+    pub fn new() -> Self {
+        Self {
+            // Newborn internal state
+            tension: 0.5,    // neutral
+            stability: 0.1,  // very low regulation
+            energy: 0.5,     // baseline vitality
+
+            // Newborn plasticity (highly sensitive)
+            shock_sensitivity: 0.2,
+            stability_gain_rate: 0.05,
+            energy_gain_rate: 0.1,
             
+
+            replay_mode: ReplayMode::StructuralBias, // default testing mode
+            // No memory at birth
+            memory: Vec::new(),
+            bias: BiasField::new(),
         }
     }
 
-    pub fn apply_dicturbance(&mut self, d: &crate::disturbance::Disturbance) {
-        //Sudden + intense -> tension spike
+    // --------------------------------------------------
+    // EXTERNAL EXPERIENCE APPLICATION
+    // --------------------------------------------------
+    pub fn apply_disturbance(&mut self, d: &Disturbance) {
+        // Capture "before" state
+        // (used ONLY to compute direction of change)
+        let before_tension = self.tension;
+        let before_stability = self.stability;
+        let before_energy = self.energy;
+
+        // ----------------------------------------------
+        // RAW PHYSICAL INTERPRETATION OF INPUT
+        // ----------------------------------------------
+
+        // Shock = strong + sudden
         let shock = d.intensity * d.suddenness;
+
+        // Calm = long + predictable
         let calm = d.duration * (1.0 - d.suddenness);
 
-        
+        // ----------------------------------------------
+        // PHYSIOLOGICAL RESPONSE (NOT DECISION)
+        // ----------------------------------------------
+
+        // Shock increases tension
         self.tension += shock * self.shock_sensitivity;
+
+        // Calm increases regulation capacity
         self.stability += calm * self.stability_gain_rate;
-        //Long + predictable -> stable growth
 
-        // Energy reacts to total load
-        self.energy += d.intensity * self.energy_gain_rate; //overall intensity increases energy (like exercise) 
-        self.energy -= shock * (self.energy_gain_rate * 0.05); //shock drains energy slightly
+        // Energy dynamics (dual nature)
+        self.energy += d.intensity * self.energy_gain_rate;
+        self.energy -= shock * (self.energy_gain_rate * 0.5);
 
-        println!("shock_sensitivity before: {:?}", self.shock_sensitivity);
-        println!("stability_gain_rate before: {:?}", self.stability_gain_rate);
-        println!("energy_gain_rate before: {:?}", self.energy_gain_rate);
-        
-        self.update_plasticity(shock, calm);
-        // println!("shock, calm applied: {}, {}", shock, calm);
-        // println!("if shock > 0.3 && self.stability > 0.6{{\n            self.shock_sensitivity *= 0.98; //less sensitive to shocks\n        }}");
+        // ----------------------------------------------
+        // STRUCTURAL MEMORY REINFORCEMENT (STEP 7 CORE)
+        // ----------------------------------------------
+        //
+        // We DO NOT store the experience.
+        // We only reinforce the DIRECTION in which
+        // the internal state moved.
+        //
+        // This is equivalent to synaptic strengthening.
 
-        // println!("shock_sensitivity after: {:?}", self.shock_sensitivity);
-        // println!("if calm > 1.0{{\n            self.stability_gain_rate *= 1.02; //learn to stabilize faster\n        }}");
-        // println!("stability_gain_rate after: {:?}", self.stability_gain_rate);
-        // println!("if self.tension > 1.0{{\n            self.energy_gain_rate *= 0.99; //become more efficient with energy use\n        }}");
-        // println!("energy_gain_rate after: {:?}", self.energy_gain_rate);
+        let dt = self.tension - before_tension;
+        let ds = self.stability - before_stability;
+        let de = self.energy - before_energy;
 
+        self.bias.reinforce(dt, ds, de);
 
-        // Soft bounds (no rules, physics limits) - max and min range to survive the body or neuron
+        // ----------------------------------------------
+        // PLASTICITY ADAPTATION (LEARNING HOW TO REACT)
+        // ----------------------------------------------
+
+        // Repeated shock with good regulation → desensitization
+        if shock > 0.3 && self.stability > 0.6 {
+            self.shock_sensitivity *= 0.98;
+        }
+
+        // Long calm exposure → faster regulation learning
+        if calm > 1.0 {
+            self.stability_gain_rate *= 1.02;
+        }
+
+        // Chronic overload → energy efficiency adjustment
+        if self.tension > 1.0 {
+            self.energy_gain_rate *= 0.99;
+        }
+
+        // ----------------------------------------------
+        // BIOLOGICAL LIMITS (NOT RULES)
+        // ----------------------------------------------
+
         self.tension = self.tension.clamp(0.0, 1.5);
         self.stability = self.stability.clamp(0.0, 1.0);
         self.energy = self.energy.clamp(0.0, 1.0);
-    }
 
-
-    fn update_plasticity(&mut self, shock: f32, calm: f32) {
-        // Plasticity updates based on experiences
-        // Rule 1 : Repeated shock + high stability -> desensitization
-        if shock > 0.3 && self.stability > 0.6{
-            self.shock_sensitivity *= 0.98; //less sensitive to shocks
-        }
-
-        // Rule 2 : Prolonged calm exposure -> faster regulation learning
-        if calm > 1.0 {
-            self.stability_gain_rate *= 1.02; //learn to stabilize faster
-        }
-
-        // Rule 3 : chronic overload (high tension) -> energy efficiency adaptation
-        if self.tension > 1.0 {
-            self.energy_gain_rate *= 0.99; //become more efficient with energy use
-        }
-
-        // soft bounds on plasticity parameters
         self.shock_sensitivity = self.shock_sensitivity.clamp(0.05, 0.5);
         self.stability_gain_rate = self.stability_gain_rate.clamp(0.01, 0.2);
         self.energy_gain_rate = self.energy_gain_rate.clamp(0.05, 0.3);
     }
 
+    // --------------------------------------------------
+    // INTERNAL THINKING LOOP (NO INPUT)
+    // --------------------------------------------------
 
-      /// Internal thinking / resting dynamics
-    /// Runs even when there is NO disturbance
-    pub fn internal_tick(&mut self) {
+    pub fn internal_thinking_tick(&mut self) {
+        match self.replay_mode {
+            ReplayMode::TraceBased => self.trace_thinking_tick(),
+            ReplayMode::StructuralBias => self.bias_thinking_tick(),
+        }
 
-        // 1. Tension naturally decays if stability exists
-        let tension_release = self.stability * 0.02;
-        self.tension -= tension_release; //if brain is stable, tension reduces over time
-
-        // 2. Stability slowly increases when tension is low
+        // common homeostasis
         if self.tension < 0.4 {
-            self.stability += 0.01; // id brain is in less stress for long time, it try to restore or increase stability
+            self.stability += 0.01;
         }
 
-        // 3. Energy redistributes (not always increases)
-        /* 
-        Real human:
-            zyada excited → thoda settle 
-            thaka hua → thoda recover
-        */
-        if self.energy > 0.6 {
-            self.energy -= 0.01;  //if brain is too energetic, it uses up energy faster or tries to distribute energy to other source to maintain balance
-        } else if self.energy < 0.4 {
-            self.energy += 0.01; //if brain is low on energy, it tries to recover energy
-        }
-
-        // 4. Internal drift (prevents freezing)
-        // random thoughts / noise (random internal chemical reactions or neural data processing in brain)
-        /*
-            ye:
-                boredom
-                curiosity
-                mind wandering
-                spontaneous thought
-            Agar ye na ho:
-                system freeze ho jaata
-                thinking impossible
-        */
-        self.tension += (rand_noise() - 0.5) * 0.01;
-        self.energy += (rand_noise() - 0.5) * 0.01;
-
-        // Physical bounds
         self.tension = self.tension.clamp(0.0, 1.5);
         self.stability = self.stability.clamp(0.0, 1.0);
         self.energy = self.energy.clamp(0.0, 1.0);
     }
-}
 
-/// Very small noise (proto-chaos)
-fn rand_noise() -> f32 {
-    // simple pseudo-noise without external crate
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .subsec_nanos();
-    (nanos % 1000) as f32 / 1000.0
+
+
+    pub fn bias_thinking_tick(&mut self) {
+        // --------------------------------------------------
+        // STRUCTURAL REPLAY (NO MEMORY ACCESS)
+        // --------------------------------------------------
+        //
+        // The system drifts along previously reinforced
+        // internal directions.
+        //
+        // This is:
+        // - subconscious processing
+        // - imagination precursor
+        // - reasoning substrate
+
+        self.tension += self.bias.dt_pref * self.bias.strength * 0.05;
+        self.stability += self.bias.ds_pref * self.bias.strength * 0.05;
+        self.energy += self.bias.de_pref * self.bias.strength * 0.05;
+
+        // --------------------------------------------------
+        // HOMEOSTASIS (SELF-REGULATION)
+        // --------------------------------------------------
+
+        // Low tension allows regulation to consolidate
+        if self.tension < 0.4 {
+            self.stability += 0.01;
+        }
+
+        // Energy balancing
+        if self.energy > 0.6 {
+            self.energy -= 0.01;
+        } else if self.energy < 0.4 {
+            self.energy += 0.01;
+        }
+
+        // --------------------------------------------------
+        // BIOLOGICAL LIMITS
+        // --------------------------------------------------
+
+        self.tension = self.tension.clamp(0.0, 1.5);
+        self.stability = self.stability.clamp(0.0, 1.0);
+        self.energy = self.energy.clamp(0.0, 1.0);
+    }
+
+    pub fn trace_thinking_tick(&mut self) {
+    
+        if self.tension < 0.4 {
+            self.stability += 0.01;
+        }
+
+        // Energy balancing
+        if self.energy > 0.6 {
+            self.energy -= 0.01;
+        } else if self.energy < 0.4 {
+            self.energy += 0.01;
+        }
+        if self.memory.is_empty() {
+            return;
+        }
+
+        let mut best = None;
+        let mut best_score = f32::MAX;
+
+        for t in &self.memory {
+            let score =
+                (self.tension - t.tension_before).abs() +
+                (self.stability - t.stability_before).abs() +
+                (self.energy - t.energy_before).abs();
+
+            if score < best_score {
+                best_score = score;
+                best = Some(t);
+            }
+        }
+
+        if let Some(t) = best {
+            let dt = t.tension_after - t.tension_before;
+            let ds = t.stability_after - t.stability_before;
+            let de = t.energy_after - t.energy_before;
+
+            self.tension += dt * 0.2;
+            self.stability += ds * 0.2;
+            self.energy += de * 0.2;
+        }
+    }
+
 }
